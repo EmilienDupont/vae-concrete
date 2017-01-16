@@ -4,10 +4,12 @@ distribution. See [Auto-Encoding Variational Bayes](https://arxiv.org/abs/1312.6
 by Kingma and Welling and [The Concrete Distribution: A Continuous Relaxation of Discrete Random Variables](https://arxiv.org/abs/1611.00712) by Maddison, Mnih and Teh or [Categorical Reparameterization with Gumbel-Softmax](https://arxiv.org/abs/1611.01144) by Jang, Gu and Poole.
 
 ## Examples
-<img src="img/regular_vae.png" width="300" height="300" />
+<img src="img/regular_vae.png" width="400" height="400" />
+
 Samples from a regular VAE
 
-<img src="img/discrete_vae.png" width="300" height="300" />
+<img src="img/discrete_vae.png" width="400" height="400" />
+
 VAE with concrete latent distribution. Each column of the image corresponds to one of the categories of the latent concrete distribution.
 
 ## Usage
