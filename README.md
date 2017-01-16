@@ -4,10 +4,10 @@ distribution. See [Auto-Encoding Variational Bayes](https://arxiv.org/abs/1312.6
 by Kingma and Welling and [The Concrete Distribution: A Continuous Relaxation of Discrete Random Variables](https://arxiv.org/abs/1611.00712) by Maddison, Mnih and Teh or [Categorical Reparameterization with Gumbel-Softmax](https://arxiv.org/abs/1611.01144) by Jang, Gu and Poole.
 
 ## Examples
-![](img/regular_vae.png?raw=true)
+<img src="img/regular_vae.png" width="300" height="300" />
 Samples from a regular VAE
 
-![](img/discrete_vae.png?raw=true)
+<img src="img/discrete_vae.png" width="300" height="300" />
 VAE with concrete latent distribution. Each column of the image corresponds to one of the categories of the latent concrete distribution.
 
 ## Usage
@@ -32,3 +32,6 @@ This takes ~10 epochs to start seeing good results. Loss should go down to ~125.
 - `keras`
 - `tensorflow` (only tested on tensorflow backend)
 - `plotly`
+
+## Acknowledgements
+Code was inspired by the [Keras VAE implementation](https://github.com/fchollet/keras/blob/master/examples/variational_autoencoder_deconv.py) (plotting functionality was also borrowed and modified from this example)
