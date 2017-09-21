@@ -1,7 +1,8 @@
 import numpy as np
 
 from keras.layers import Input, Dense, Lambda, Flatten, Reshape, merge
-from keras.layers import Convolution2D, Deconvolution2D
+from keras.layers import Conv2D, Conv2DTranspose
+from keras.layers.merge import Concatenate
 from keras.models import Model
 from keras.optimizers import RMSprop
 from keras import backend as K
@@ -9,12 +10,13 @@ from keras.objectives import binary_crossentropy
 from util import (kl_normal, kl_discrete, sampling_normal,
                   sampling_concrete, plot_digit_grid, EPSILON)
 
+
 class VAE():
     """
     Class to handle building and training VAE models.
     """
     def __init__(self, input_shape=(28, 28, 1), latent_cont_dim=2,
-                       latent_disc_dim=0, hidden_dim=128, filters=(64, 64, 64)):
+                 latent_disc_dim=0, hidden_dim=128, filters=(64, 64, 64)):
         """
         Setting up everything.
 
@@ -33,7 +35,8 @@ class VAE():
             Dimension of hidden layer.
 
         filters : Array-like, shape (num_filters, num_filters, num_filters)
-            Number of filters for each convolution in increasing order of depth.
+            Number of filters for each convolution in increasing order of
+            depth.
         """
         self.opt = None
         self.model = None
@@ -45,7 +48,7 @@ class VAE():
         self.filters = filters
 
     def fit(self, x_train, num_epochs=1, batch_size=100, val_split=.1,
-                  learning_rate=1e-3, reset_model=True):
+            learning_rate=1e-3, reset_model=True):
         """
         Training model
         """
@@ -62,27 +65,27 @@ class VAE():
         self.model.compile(optimizer=self.opt, loss=self._vae_loss)
 
         self.model.fit(x_train, x_train,
-                        nb_epoch=self.num_epochs,
-                        batch_size=self.batch_size,
-                        validation_split=val_split)
+                       epochs=self.num_epochs,
+                       batch_size=self.batch_size,
+                       validation_split=val_split)
 
     def _set_model(self):
         """
         Setup model (method should only be called in self.fit())
         """
         print("Setting up model...")
-        ## Encoder
+        # Encoder
         inputs = Input(batch_shape=(self.batch_size,) + self.input_shape)
 
         # Instantiate encoder layers
-        Q_0 = Convolution2D(self.input_shape[2], 2, 2, border_mode='same',
-                          activation='relu')
-        Q_1 = Convolution2D(self.filters[0], 2, 2, border_mode='same',
-                          activation='relu', subsample=(2, 2))
-        Q_2 = Convolution2D(self.filters[1], 3, 3, border_mode='same',
-                          activation='relu', subsample=(1, 1))
-        Q_3 = Convolution2D(self.filters[2], 3, 3, border_mode='same',
-                          activation='relu', subsample=(1, 1))
+        Q_0 = Conv2D(self.input_shape[2], (2, 2), padding='same',
+                     activation='relu')
+        Q_1 = Conv2D(self.filters[0], (2, 2), padding='same', strides=(2, 2),
+                     activation='relu')
+        Q_2 = Conv2D(self.filters[1], (3, 3), padding='same', strides=(1, 1),
+                     activation='relu')
+        Q_3 = Conv2D(self.filters[2], (3, 3), padding='same', strides=(1, 1),
+                     activation='relu')
         Q_4 = Flatten()
         Q_5 = Dense(self.hidden_dim, activation='relu')
         Q_z_mean = Dense(self.latent_cont_dim)
@@ -108,30 +111,25 @@ class VAE():
         if self.latent_disc_dim:
             z = Lambda(self._sampling_normal)([z_mean, z_log_var])
             c = Lambda(self._sampling_concrete)(alpha)
-            encoding = merge([z, c], mode='concat')
+            encoding = Concatenate()([z, c])
         else:
             encoding = Lambda(self._sampling_normal)([z_mean, z_log_var])
 
-        ## Generator
+        # Generator
         # Instantiate generator layers to be able to sample from latent
         # distribution later
         out_shape = (self.input_shape[0] / 2, self.input_shape[1] / 2, self.filters[2])
         G_0 = Dense(self.hidden_dim, activation='relu')
         G_1 = Dense(np.prod(out_shape), activation='relu')
         G_2 = Reshape(out_shape)
-        G_3 = Deconvolution2D(self.filters[2], 3, 3, (self.batch_size,) + out_shape,
-                              border_mode='same', subsample=(1, 1),
-                              activation='relu')
-        out_shape = (self.input_shape[0] / 2, self.input_shape[1] / 2, self.filters[1])
-        G_4 = Deconvolution2D(self.filters[1], 3, 3, (self.batch_size,) + out_shape,
-                              border_mode='same', subsample=(1, 1),
-                              activation='relu')
-        out_shape = (self.input_shape[0] + 1, self.input_shape[1] + 1, self.filters[0])
-        G_5 = Deconvolution2D(self.filters[0], 2, 2, (self.batch_size,) + out_shape,
-                              border_mode='valid', subsample=(2, 2),
-                              activation='relu')
-        G_6 = Convolution2D(self.input_shape[2], 2, 2, border_mode='valid',
-                            activation='sigmoid', name='generated')
+        G_3 = Conv2DTranspose(self.filters[2], (3, 3), padding='same',
+                              strides=(1, 1), activation='relu')
+        G_4 = Conv2DTranspose(self.filters[1], (3, 3), padding='same',
+                              strides=(1, 1), activation='relu')
+        G_5 = Conv2DTranspose(self.filters[0], (2, 2), padding='valid',
+                              strides=(2, 2), activation='relu')
+        G_6 = Conv2D(self.input_shape[2], (2, 2), padding='same',
+                     strides=(1, 1), activation='sigmoid', name='generated')
 
         # Apply generator layers
         x = G_0(encoding)
@@ -141,7 +139,7 @@ class VAE():
         x = G_4(x)
         x = G_5(x)
         generated = G_6(x)
-        
+
         self.model = Model(inputs, generated)
 
         # Set up generator
@@ -176,7 +174,7 @@ class VAE():
         # Model requires batch_size batches, so tile if this is not the case
         if latent_sample.shape[0] != self.batch_size:
             latent_sample = np.tile(latent_sample, self.batch_size).reshape(
-                              (self.batch_size, self.latent_dim) )
+                              (self.batch_size, self.latent_dim))
         return self.generator.predict(latent_sample, batch_size=self.batch_size)
 
     def plot(self, std_dev=2.):
@@ -192,7 +190,7 @@ class VAE():
         x = K.flatten(x)
         x_generated = K.flatten(x_generated)
         reconstruction_loss = self.input_shape[0] * self.input_shape[1] * \
-                                binary_crossentropy(x, x_generated)
+                                  binary_crossentropy(x, x_generated)
         kl_normal_loss = kl_normal(self.z_mean, self.z_log_var)
         if self.latent_disc_dim:
             kl_disc_loss = kl_discrete(self.alpha)

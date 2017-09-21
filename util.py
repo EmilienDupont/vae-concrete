@@ -9,6 +9,7 @@ from plotly import tools
 
 EPSILON = 1e-8
 
+
 def get_processed_mnist():
     """
     Get normalized MNIST datasets with correct shapes (Tensorflow style).
@@ -19,6 +20,7 @@ def get_processed_mnist():
     x_test = x_test.astype('float32') / 255.
     x_test = x_test.reshape(x_test.shape + (1,))
     return (x_train, y_train), (x_test, y_test)
+
 
 def get_one_hot_vector(idx, dim=10):
     """
@@ -35,6 +37,7 @@ def get_one_hot_vector(idx, dim=10):
     one_hot = np.zeros(dim)
     one_hot[idx] = 1.
     return one_hot
+
 
 def plot_digit_grid(model, fig_size=10, digit_size=28, std_dev=2.,
                     filename='vae'):
@@ -77,9 +80,9 @@ def plot_digit_grid(model, fig_size=10, digit_size=28, std_dev=2.,
                    j * digit_size: (j + 1) * digit_size] = digit
 
     trace = go.Heatmap(
-                x = grid_x,
-                y = grid_y,
-                z = figure,
+                x=grid_x,
+                y=grid_y,
+                z=figure,
                 colorscale='Viridis'
             )
 
@@ -93,12 +96,14 @@ def plot_digit_grid(model, fig_size=10, digit_size=28, std_dev=2.,
 
     py.plot(fig, filename=get_timestamp_filename(filename), auto_open=False)
 
+
 def get_timestamp_filename(filename):
     """
     Returns a string of the form "filename_<date>.html"
     """
     date = time.strftime("%H-%M_%d-%m-%Y")
     return filename + "_" + date + ".html"
+
 
 def kl_normal(z_mean, z_log_var):
     """
@@ -118,6 +123,7 @@ def kl_normal(z_mean, z_log_var):
     kl_per_example = .5 * (K.sum(K.square(z_mean) + K.exp(z_log_var) - 1 - z_log_var, axis=1))
     return K.mean(kl_per_example)
 
+
 def kl_discrete(dist):
     """
     KL divergence between a uniform distribution over num_cat categories and
@@ -130,9 +136,10 @@ def kl_discrete(dist):
     num_cat : int
     """
     num_categories = tuple(dist.get_shape().as_list())[1]
-    dist_sum = K.sum(dist, axis=1) # Sum over columns, this now has size (batch_size,)
-    dist_neg_entropy = K.sum( dist * K.log( dist + EPSILON ), axis=1)
+    dist_sum = K.sum(dist, axis=1)  # Sum over columns, this now has size (batch_size,)
+    dist_neg_entropy = K.sum(dist * K.log(dist + EPSILON), axis=1)
     return np.log(num_categories) + K.mean(dist_neg_entropy - dist_sum)
+
 
 def sampling_concrete(alpha, out_shape, temperature=0.67):
     """
@@ -144,13 +151,14 @@ def sampling_concrete(alpha, out_shape, temperature=0.67):
         Parameters
     """
     uniform = K.random_uniform(shape=out_shape)
-    gumbel = - K.log( - K.log(uniform + EPSILON) + EPSILON )
+    gumbel = - K.log(- K.log(uniform + EPSILON) + EPSILON)
     logit = (K.log(alpha + EPSILON) + gumbel) / temperature
     return K.softmax(logit)
+
 
 def sampling_normal(z_mean, z_log_var, out_shape):
     """
     Sampling from a normal distribution with mean z_mean and variance z_log_var
     """
-    epsilon = K.random_normal(shape=out_shape, mean=0., std=1.)
+    epsilon = K.random_normal(shape=out_shape, mean=0., stddev=1.)
     return z_mean + K.exp(z_log_var / 2) * epsilon
